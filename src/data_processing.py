@@ -8,18 +8,15 @@ def add_distance_to_water(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     # Add all waterfront houses to the reference list.
     water_list = df.query("waterfront == 1")
-    water_distance = []
-    # For each row, calculate the distance to the nearest waterfront house.
-    for idx in df.index:
-        ref_list = []
-        for x, y in zip(list(water_list["long"]), list(water_list["lat"])):
-            ref_list.append(
-                calculate_distance(df["long"][idx], df["lat"][idx], x, y).min()
-            )
-        water_distance.append(min(ref_list))
-
-    # Create a new column from the previously computed list.
-    df["water_distance"] = water_distance
+    # Distance matrix: one row per house, one column per waterfront house.
+    distances = calculate_distance(
+        df["long"].to_numpy()[:, np.newaxis],
+        df["lat"].to_numpy()[:, np.newaxis],
+        water_list["long"].to_numpy()[np.newaxis, :],
+        water_list["lat"].to_numpy()[np.newaxis, :],
+    )
+    # Keep the distance to the nearest waterfront house.
+    df["water_distance"] = distances.min(axis=1)
 
     return df
 

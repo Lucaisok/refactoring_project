@@ -66,3 +66,6 @@ skops) import correctly.
 2. Revert the pins with
    `git checkout -- pyproject.toml .python-version uv.lock bonus_solution/pyproject.toml`.
 3. Run `uv sync`.
+
+
+Run pipeline: uv run python -m src.data_pipeline

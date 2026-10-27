@@ -2,18 +2,15 @@ import pandas as pd
 
 
 def remove_bedroom_outliers(df: pd.DataFrame) -> pd.DataFrame:
-    print("before removing, size: ", df.shape)
     df = df.copy()
     df["bath_bed_ratio"] = df["bathrooms"] / df["bedrooms"]
     invalid_ratio = (df["bath_bed_ratio"] >= 2) | (df["bath_bed_ratio"] <= 0.10)
     df = df.loc[~invalid_ratio].copy()
     df.drop(columns=["bath_bed_ratio"], inplace=True)
-    print("after removing, size: ", df.shape)
     return df
 
 
 def reconstruct_basement_size(df: pd.DataFrame) -> pd.DataFrame:
-    print("reconstruct_basement_size run")
     df = df.copy()
     df["sqft_basement"] = df["sqft_living"] - df["sqft_above"]
     return df
@@ -32,7 +29,6 @@ def fill_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     # Drop the original `yr_renovated` and `yr_built` columns.
     df.drop("yr_renovated", axis=1, inplace=True)
     df.drop("yr_built", axis=1, inplace=True)
-    print("missing values after filling", df.isna().sum())
 
     return df
 
