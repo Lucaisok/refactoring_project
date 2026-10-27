@@ -5,6 +5,7 @@ import pandas as pd
 from src.data_cleaning import clean_data
 from src.data_loading import load_data
 from src.data_processing import data_processing
+from src.modeling import save_model, train_model
 
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "processed.csv"
 
@@ -18,6 +19,8 @@ def run_pipeline(df: pd.DataFrame) -> pd.DataFrame:
 def main():
     df = run_pipeline(load_data())
     df.to_csv(OUTPUT_PATH, index=False)
+    model = train_model(df)
+    save_model(model)
 
 
 if __name__ == "__main__":
