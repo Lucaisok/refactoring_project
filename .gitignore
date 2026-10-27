@@ -171,3 +171,4 @@ Thumbs.db
 
 # Model files
 model/
+data/processed.csv
