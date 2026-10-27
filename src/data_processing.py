@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from data_cleaning import clean_data
-from helpers.helpers import calculate_distance
+from src.helpers.helpers import calculate_distance
 
 
 def add_distance_to_water(df: pd.DataFrame) -> pd.DataFrame:
@@ -52,18 +51,11 @@ def add_sqft_price(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def data_processing():
-    df = clean_data()
+def data_processing(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    df = add_distance_to_water(add_distance_from_center(add_sqft_price(df)))
+    df = add_sqft_price(df)
+    df = add_distance_from_center(df)
+    df = add_distance_to_water(df)
 
     return df
-
-
-def main():
-    data_processing()
-
-
-if __name__ == "__main__":
-    main()

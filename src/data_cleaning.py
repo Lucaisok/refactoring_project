@@ -1,10 +1,9 @@
 import pandas as pd
 
-from data_loading import load_data
-
 
 def remove_bedroom_outliers(df: pd.DataFrame) -> pd.DataFrame:
     print("before removing, size: ", df.shape)
+    df = df.copy()
     df["bath_bed_ratio"] = df["bathrooms"] / df["bedrooms"]
     invalid_ratio = (df["bath_bed_ratio"] >= 2) | (df["bath_bed_ratio"] <= 0.10)
     df = df.loc[~invalid_ratio].copy()
@@ -38,17 +37,10 @@ def fill_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def clean_data():
-    data = load_data()
-    df = data.copy()
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
 
-    df = fill_missing_values(reconstruct_basement_size(remove_bedroom_outliers(df)))
+    df = remove_bedroom_outliers(df)
+    df = reconstruct_basement_size(df)
+    df = fill_missing_values(df)
     return df
-
-
-def main():
-    clean_data()
-
-
-if __name__ == "__main__":
-    main()
