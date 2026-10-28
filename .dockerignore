@@ -1,0 +1,9 @@
+# The image needs only locked dependency metadata, the code and the raw dataset.
+**
+!pyproject.toml
+!uv.lock
+!src/
+!src/**/*.py
+!app/
+!app/*.py
+!data/King_County_House_prices_dataset.csv
