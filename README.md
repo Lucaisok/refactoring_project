@@ -1,127 +1,129 @@
-# Refactoring Project
+# King County House Prices: From Notebook to Pipeline, API and Container
 
-Use this repository as a **template** for your refactoring project. It walks you through turning a working but messy notebook into clean, reusable Python code: the notebook analyzes King County house sales, and your job is to extract its data cleaning and feature engineering logic into a proper pipeline. Create pull requests in your own copy even if you are working alone, and use them to track your progress.
+This project takes the exploratory [King County notebook](King-County.ipynb) and turns its data cleaning, feature engineering and modeling into a reusable Python pipeline. It then serves a trained model through a FastAPI price-prediction endpoint that runs in a Docker container.
 
-## Learning Objectives
+The original assignment is in [project-description.md](project-description.md).
 
-By the end of this repository, you should be able to:
+## 📄 Conclusions
 
-- Read and understand an existing Data Science notebook well enough to refactor it.
-- Refactor data cleaning and feature engineering code into reusable Python functions.
-- Build a pipeline that reproduces a notebook's preprocessing steps end to end.
-- Apply the same refactoring approach to a modeling workflow (stretch goal).
-- Build and containerize a FastAPI CRUD service backed by a database (stretch goal).
+**[Read my conclusions (PDF)](conclusions.pdf)**
 
-## Learning Path
+## What I built
 
-| File / Folder | Description |
-|---|---|
-| [**Project Description**](project-description.md) | The assignment tasks and stretch goals. |
-| [**King County Notebook**](King-County.ipynb) | The original notebook: EDA, cleaning, feature engineering, and modeling for King County house prices. |
+| Step | Where | What it does |
+|---|---|---|
+| Data loading | [src/data_loading.py](src/data_loading.py) | Reads the raw King County CSV. |
+| Data cleaning | [src/data_cleaning.py](src/data_cleaning.py) | Removes bedroom/bathroom outliers, reconstructs `sqft_basement`, fills missing `view`/`waterfront` and merges `yr_built`/`yr_renovated` into `last_known_change`. |
+| Feature engineering | [src/data_processing.py](src/data_processing.py) | Adds price per sqft, distance to Seattle's center and distance to the nearest waterfront house. |
+| Modeling | [src/modeling.py](src/modeling.py) | ElasticNet with polynomial features and scaling in one scikit-learn `Pipeline`, tuned with 5-fold `GridSearchCV`. Saved with [skops](https://skops.readthedocs.io/). |
+| Pipeline entry point | [src/data_pipeline.py](src/data_pipeline.py) | Runs load → clean → process → train → save from the command line. |
+| API | [app/](app/) | FastAPI app that loads the model at startup and serves `POST /prediction`. |
+| Tests | [tests/test_api.py](tests/test_api.py) | Checks predictions and input validation. |
+| Container | [Dockerfile](Dockerfile) | Trains the model during the build and runs the API. |
 
-### Additional Folders and Files
+### Two models
 
-| File / Folder | Description |
-|---|---|
-| [**data**](data/) | The King County house price dataset used by the notebook. |
-| [**assets**](assets/) | Visual aids referenced in the repository. |
-| [**bonus_solution**](bonus_solution/) | A FastAPI + Postgres + Docker reference implementation for the optional CRUD stretch goal. |
-| [**pyproject.toml**](pyproject.toml) | Project configuration and dependencies. |
-| [**uv.lock**](uv.lock) | Dependency lock file. |
+The pipeline can train two models. Both are defined in `MODEL_CONFIGS` in [src/modeling.py](src/modeling.py).
 
-## Setup
+- **`full`**: uses 19 features, including the engineered location features.
+- **`basic`**: uses 5 features a user can easily type in (`bedrooms`, `bathrooms`, `sqft_living`, `sqft_lot`, `floors`). The API serves this one. Test R² is about 0.55.
 
-Use [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.13.5 or newer
-and Python 3.13.17 or a newer 3.13 patch release, as defined in
-[`.python-version`](.python-version).
+### Design choices
 
-Rebuild existing Docker images with `--pull --no-cache` after this update
-to refresh their system certificates and dependencies.
+- **Every step is a small, pure function.** Each takes a DataFrame and returns a new one without modifying its input. That makes the steps easy to test and reorder.
+- **Preprocessing lives inside the model.** Polynomial expansion and scaling are part of the saved scikit-learn `Pipeline`, so the API passes raw feature values and can't apply the transformations differently from training.
+- **The API checks its model on startup.** If the model file is missing, or its features don't match the config, the app refuses to start and says how to fix it.
+- **Input validation.** [app/schemas.py](app/schemas.py) sets realistic ranges (for example 1–15 bedrooms), so invalid requests get a `422` instead of a meaningless price.
 
-> [!NOTE]
-> Throughout these steps, text in angle brackets like `<repo-name>` is a **placeholder**. Replace it, including the `< >` brackets, with your own value. For example, `cd <repo-name>` becomes `cd mle-refactoring-project`.
+## Project structure
 
-### 1. Create the Repository from the Template
-
-Click **Use this template** on GitHub.
-
-When creating the repository:
-
-- Set yourself as the **Owner**
-- Choose a repository name
-- Disable **Include all branches**
-- Click **Create repository**
-
-> [!IMPORTANT]
-> If you are working in pairs or groups, only **one person** should complete this step.
-
----
-
-### 2. Add Collaborators (Pairs/Groups Only)
-
-If working with teammates:
-
-1. Open the repository on GitHub
-2. Go to **Settings → Collaborators**
-3. Add your teammates as collaborators
-4. Share the repository link with your team
-
-Teammates should accept the invitation before continuing.
-
----
-
-### 3. Clone the Repository
-
-Copy the SSH URL from the **Code** button on GitHub, then run:
-
-```bash
-git clone <copied-ssh-url>
+```
+.
+├── app/                  # FastAPI app (main.py, schemas.py)
+├── src/                  # Pipeline: loading, cleaning, processing, modeling
+│   └── helpers/          # Distance calculation
+├── tests/                # API tests
+├── data/                 # Raw dataset (processed.csv is generated, not tracked)
+├── model/                # Trained models (generated, not tracked)
+├── Dockerfile
+├── King-County.ipynb     # Original notebook
+├── conclusions.pdf       # Project reflection
+└── pyproject.toml / uv.lock
 ```
 
-The copied SSH URL will look like `git@github.com:<your-username>/<repo-name>.git`.
+## Getting started
 
----
+### Option A: Docker (quickest)
 
-### 4. Move into the Project Folder and Install Dependencies
-
-This installs all dependencies and creates a virtual environment in `.venv/`.
+You only need [Docker](https://docs.docker.com/get-docker/). The build trains the model, so no local Python setup is required.
 
 ```bash
-cd <repo-name>
-uv sync
+docker build -t king-county-api .
+docker run -p 8000:8000 king-county-api
 ```
 
----
+Then open http://localhost:8000/docs to try the API in your browser.
 
-### 5. Open the Repository in VS Code
+### Option B: Run locally
 
-> [!NOTE]
-> Make sure you open VS Code from the project root so it automatically detects the environment created by `uv sync`.
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.13 (see [.python-version](.python-version)). uv can install the right Python for you.
 
-Launch VS Code in the project root folder:
+1. Install dependencies:
+
+   ```bash
+   uv sync
+   ```
+
+2. Train a model. The API needs `basic`; `full` is optional.
+
+   ```bash
+   uv run python -m src.data_pipeline --model basic
+   uv run python -m src.data_pipeline --model full
+   ```
+
+   This writes `data/processed.csv` and `model/basic_model.bin` (or `model/model.bin`) and prints the best hyperparameters and test R².
+
+3. Start the API:
+
+   ```bash
+   uv run fastapi dev
+   ```
+
+   Open http://localhost:8000/docs.
+
+4. Run the tests. They need the `basic` model from step 2.
+
+   ```bash
+   uv run pytest
+   ```
+
+## Using the API
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Health check. |
+| `POST` | `/prediction` | Predicts a house price from 5 features. |
+
+Example request:
 
 ```bash
-code .
+curl -X POST http://localhost:8000/prediction \
+  -H "Content-Type: application/json" \
+  -d '{"bedrooms": 3, "bathrooms": 2, "sqft_living": 1800, "sqft_lot": 5000, "floors": 1}'
 ```
 
-Then open [King-County.ipynb](King-County.ipynb) and select the Python environment created by `uv sync` as the kernel.
+Example response:
 
-## How to Use This Repo
+```json
+{"price": 457450.45}
+```
 
-1. Read the assignment brief in [project-description.md](project-description.md).
-2. Work through the notebook in [King-County.ipynb](King-County.ipynb).
-3. Refactor the cleaning and feature engineering logic into Python files.
-4. Build a reusable pipeline.
-5. If you want an extra challenge, extend your refactor to cover the modeling step as well.
-6. If you want to go even further, use [bonus_solution/](bonus_solution/) as a reference for the optional FastAPI + Docker stretch goal.
+## How the Docker image works
 
-## Bonus Solution
+The [Dockerfile](Dockerfile) has three stages:
 
-The [bonus_solution/](bonus_solution/) folder contains a minimal working example of:
+1. **`base`** installs the locked dependencies from `uv.lock` with uv.
+2. **`trainer`** copies `src/` and the raw CSV and runs the pipeline to train the `basic` model.
+3. **`runtime`** copies `app/`, `src/` and only the trained model file, then starts uvicorn on port 8000.
 
-- a FastAPI CRUD API
-- Postgres persistence
-- a `Dockerfile` for the API
-- a `docker-compose.yaml` file to run the API and database together
-
-It is included as a reference implementation for the optional stretch task, not as a required project structure.
+The `model/` folder is in `.gitignore`, so a fresh clone has no model file. Training during the build means `docker build` works straight from the repository. It also means the model is saved and loaded with the exact same scikit-learn and skops versions. [.dockerignore](.dockerignore) keeps the build small by sending only the files the image needs.
