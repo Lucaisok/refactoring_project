@@ -68,4 +68,8 @@ skops) import correctly.
 3. Run `uv sync`.
 
 
-Run pipeline: uv run python -m src.data_pipeline
+Run pipeline:
+uv run python -m src.data_pipeline --model full
+uv run python -m src.data_pipeline --model basic
+
+Run API: uv run fastapi dev

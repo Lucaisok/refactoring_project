@@ -1,5 +1,7 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import skops.io as sio
@@ -9,7 +11,46 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
-MODEL_PATH = Path(__file__).resolve().parents[1] / "model" / "model.bin"
+
+@dataclass(frozen=True)
+class ModelConfig:
+    features: list[str]
+    path: Path
+
+
+ModelName = Literal["full", "basic"]
+
+MODEL_OUTPUT_PATH = Path(__file__).resolve().parents[1] / "model" / "model.bin"
+BASIC_MODEL_OUTPUT_PATH = (
+    Path(__file__).resolve().parents[1] / "model" / "basic_model.bin"
+)
+BASIC_FEATURES = ["bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors"]
+FULL_FEATURES = [
+    "bedrooms",
+    "bathrooms",
+    "sqft_living",
+    "sqft_lot",
+    "floors",
+    "waterfront",
+    "view",
+    "condition",
+    "grade",
+    "sqft_above",
+    "sqft_basement",
+    "zipcode",
+    "lat",
+    "long",
+    "sqft_living15",
+    "sqft_lot15",
+    "last_known_change",
+    "center_distance",
+    "water_distance",
+]
+
+MODEL_CONFIGS: dict[ModelName, ModelConfig] = {
+    "full": ModelConfig(features=FULL_FEATURES, path=MODEL_OUTPUT_PATH),
+    "basic": ModelConfig(features=BASIC_FEATURES, path=BASIC_MODEL_OUTPUT_PATH),
+}
 
 
 def build_model() -> GridSearchCV:
@@ -49,16 +90,8 @@ def build_model() -> GridSearchCV:
     return elastic_cv
 
 
-def split_data(df: pd.DataFrame):
-    # Remove columns that would cause data leakage or add no predictive value.
-    drop_list = [
-        "price",
-        "sqft_price",
-        "date",
-        "delta_lat",
-        "delta_long",
-    ]
-    features = [x for x in df.columns if x not in drop_list]
+def split_data(df: pd.DataFrame, selected_model: ModelName):
+    features = MODEL_CONFIGS[selected_model].features
 
     X = df[features]
     y = df["price"]
@@ -70,13 +103,7 @@ def split_data(df: pd.DataFrame):
     return X_train, X_test, y_train, y_test
 
 
-def prepare_features(df: pd.DataFrame):
-    X_train, X_test, y_train, y_test = split_data(df)
-    # Drop the `id` column; it identifies houses but has no predictive value.
-    return X_train.drop(columns=["id"]), X_test.drop(columns=["id"]), y_train, y_test
-
-
-def save_model(model, path: str | Path = MODEL_PATH):
+def save_model(model, path: str | Path):
     path = Path(path)
     # Create the directory if it does not already exist.
     os.makedirs(path.parent, exist_ok=True)
@@ -85,9 +112,9 @@ def save_model(model, path: str | Path = MODEL_PATH):
         sio.dump(model, f_out)
 
 
-def train_model(df: pd.DataFrame):
+def train_model(df: pd.DataFrame, selected_model: ModelName):
     elastic_cv = build_model()
-    X_train, X_test, y_train, y_test = prepare_features(df)
+    X_train, X_test, y_train, y_test = split_data(df, selected_model)
     # Train and optimize the model with grid search.
     elastic_cv.fit(X_train, y_train)
 
